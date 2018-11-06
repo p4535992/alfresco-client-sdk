@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one or more
+    contributor license agreements.  See the NOTICE file distributed with
+    this work for additional information regarding copyright ownership.
+    The ASF licenses this file to You under the Apache License, Version 2.0
+    (the "License"); you may not use this file except in compliance with
+    the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+
+<!-- Configures the Camel Context-->
+<beans xmlns="http://www.springframework.org/schema/beans"	        
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:camel="http://camel.apache.org/schema/spring"
+       xmlns:cxf-core="http://cxf.apache.org/core"
+       xmlns:cxf="http://camel.apache.org/schema/cxf"
+       xmlns:osgix="http://www.springframework.org/schema/osgi-compendium"
+       xmlns:ctx="http://www.springframework.org/schema/context"
+       xmlns:http="http://cxf.apache.org/transports/http/configuration"
+       xmlns:sec="http://cxf.apache.org/configuration/security"
+       xmlns:httpj="http://cxf.apache.org/transports/http-jetty/configuration"
+       xmlns:spring-security="http://www.springframework.org/schema/security"
+       xmlns:jaxws="http://cxf.apache.org/jaxws"
+       xmlns:jaxrs="http://cxf.apache.org/jaxrs" 
+       xmlns:jaxrs-client="http://cxf.apache.org/jaxrs-client"      
+       xmlns:osgi="http://www.springframework.org/schema/osgi"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://camel.apache.org/schema/cxf http://camel.apache.org/schema/cxf/camel-cxf.xsd
+       http://cxf.apache.org/core http://cxf.apache.org/schemas/core.xsd
+       http://www.springframework.org/schema/osgi-compendium http://www.springframework.org/schema/osgi-compendium/spring-osgi-compendium.xsd
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+       http://cxf.apache.org/transports/http/configuration http://cxf.apache.org/schemas/configuration/http-conf.xsd
+       http://cxf.apache.org/configuration/security http://cxf.apache.org/schemas/configuration/security.xsd
+       http://cxf.apache.org/transports/http-jetty/configuration http://cxf.apache.org/schemas/configuration/http-jetty.xsd
+       http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security.xsd
+       http://camel.apache.org/schema/spring-security http://camel.apache.org/schema/spring-security/camel-spring-security.xsd
+       http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd
+       http://www.springframework.org/schema/osgi http://www.springframework.org/schema/osgi/spring-osgi.xsd
+       http://cxf.apache.org/jaxrs http://cxf.apache.org/jaxrs.xsd
+       http://cxf.apache.org/jaxrs-client http://cxf.apache.org/jaxrs-client.xsd">
+     
+    <!-- ==================================================== -->
+    <!-- CARICAMENTO PROPRIETA BUNDLE -->
+    <!-- ==================================================== -->
+
+	<bean id="properties" class="org.apache.camel.spring.spi.BridgePropertyPlaceholderConfigurer">
+	      <property name="ignoreResourceNotFound" value="true"/>		 
+	      <property name="locations">
+	        <list>
+				<value>META-INF/config/alfresco-client.properties</value>
+	            <value>classpath:META-INF/config/alfresco-client.properties</value>
+	            <value>classpath:META-INF/config/override-alfresco-client.properties</value>
+	        </list>
+	    </property>	    
+	</bean>	 
+	  	
+
+    <import resource="classpath*:camel-definitions.xml"/>
+    <import resource="classpath:META-INF/cxf/cxf.xml" />   
+    
+    <!-- =================================== -->
+    <!-- Interceptor declaration for logging -->
+    <!-- =================================== -->
+    <!-- https://stackoverflow.com/questions/8065737/how-to-log-apache-cxf-soap-request-and-soap-response-using-log4j -->
+	<bean id="loggingFeature" class="org.apache.cxf.feature.LoggingFeature" />
+	<!-- NOTE: parentc convept is not supported on blueprint -->
+	<bean id="abstractLoggingInterceptor" abstract="true">
+	    <property name="prettyLogging" value="true"/>
+	</bean>
+	<bean id="loggingInInterceptor" class="org.apache.cxf.interceptor.LoggingInInterceptor" parent="abstractLoggingInterceptor"/>
+	<bean id="loggingOutInterceptor" class="org.apache.cxf.interceptor.LoggingOutInterceptor" parent="abstractLoggingInterceptor"/>
+    
+    <!-- =================================== -->		
+    <!-- PROVIDERS                -->
+    <!-- =================================== -->
+	<bean id="jsonProvider" class="org.apache.cxf.jaxrs.provider.json.JSONProvider"/>
+	<bean id="multipartProvider" class="org.apache.cxf.jaxrs.provider.MultipartProvider"/>	     
+    
+	<!-- ================ -->
+    <!-- SETUP CXF        -->
+    <!-- ================ -->
+	<!-- 
+	cxf-bus is the bus configuration for CXF. It is like the manager for all CXF services. 
+	The most common use as far as I know is to configure custom interceptors (for auditing, 
+	request/response manipulation, headers manipulation etc)
+	-->
+	<!-- https://stackoverflow.com/questions/8065737/how-to-log-apache-cxf-soap-request-and-soap-response-using-log4j -->
+	<cxf-core:bus>
+	    <!-- [DISABILITATO] Sembra dare problemi con penguinet -->
+	    <!--  
+	    <cxf-core:inInterceptors>
+	        <ref bean="loggingInInterceptor"/>
+	    </cxf-core:inInterceptors>
+	    <cxf-core:outInterceptors>
+	        <ref bean="loggingOutInterceptor"/>
+	    </cxf-core:outInterceptors>
+	    <cxf-core:outFaultInterceptors>
+	        <ref bean="loggingOutInterceptor"/>
+	    </cxf-core:outFaultInterceptors>
+	    <cxf-core:inFaultInterceptors>
+	        <ref bean="loggingInInterceptor"/>
+	    </cxf-core:inFaultInterceptors>
+	    -->
+	</cxf-core:bus>
+	
+	<!-- ========================== -->
+	<!-- SETUP JMS                  -->
+	<!-- ========================== -->
+	
+		
+	<bean id="jmsConnectionFactory" class="org.apache.activemq.ActiveMQConnectionFactory">
+ 			<property name="brokerURL" value="failover:(${activemq.url})?startupMaxReconnectAttempts=1"/> <!-- tcp://localhost:61616,51516,61616 -->
+ 			<property name="userName" value="${activemq.jmx.user}"/>
+           <property name="password" value="${activemq.jmx.password}"/>
+	</bean>
+	
+	<bean id="consumerConnectionFactory"
+           class="org.springframework.jms.connection.CachingConnectionFactory">
+       		<constructor-arg ref="jmsConnectionFactory" />
+   	</bean>
+   	
+   	<bean id="jmsTransactionManager" class="org.springframework.jms.connection.JmsTransactionManager">
+   		<property name="connectionFactory" ref="consumerConnectionFactory" />
+	</bean>
+	 
+	<bean id="required" class="org.apache.camel.spring.spi.SpringTransactionPolicy">
+   		<property name="transactionManager" ref="jmsTransactionManager"/>
+   		<property name="propagationBehaviorName" value="PROPAGATION_REQUIRED"/>
+	</bean>
+
+ 	<!-- 
+	  <bean id="activemq" class="org.apache.activemq.camel.component.ActiveMQComponent">
+	     <property name="connectionFactory" ref="jmsConnectionFactory" />
+	  </bean>
+ 	-->
+ 		    	
+	<!-- This creates an embedded ActiveMQ Broker -->  
+	<!--  
+	  <broker xmlns:core="http://activemq.apache.org/schema/core" useJmx="false" persistent="true" dataDirectory="./AMQpecstore">
+	    <transportConnectors>
+	      <transportConnector uri="tcp://localhost:51516" />
+	    </transportConnectors>
+	  </broker>
+	-->
+
+    <!-- ================ -->
+    <!-- SETUP HTTPS -->
+    <!-- ================ -->
+
+
+    <!-- ==================== -->
+    <!-- SETUP AUTHENTICATION -->
+    <!-- ==================== --> 
+
+    <!-- ==================== -->
+    <!-- SETUP CAMEL          -->
+    <!-- ==================== -->
+    
+	<camelContext id="camel_context" xmlns="http://camel.apache.org/schema/spring" trace="false">	   
+	
+    </camelContext>
+
+</beans>

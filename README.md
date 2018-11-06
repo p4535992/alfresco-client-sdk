@@ -1,8 +1,30 @@
-# NOTICE
-```diff
-- THIS PROJECT IS UNSUPPORTED AND NO LONGER UNDER ACTIVE DEVELOPMENT -
-```
 
+# MY DEVELOPING OF THE PROJECT
+
+- [DONE] Merge all the projects alfresco-java-client,client-commons,client-samples-cli,client-samples-java in one (and more simple use) project "alfresco-client", but if you prefer a parent child maven integration be my guest.
+- [DONE] [Add interceptors for slf4j with OkHttpClient Logging Inteceptors](docs/develop/slf4j-okhttp3-logging-interceptor.md)
+- [DONE] [Find a way to avoid conflict with certificate of alfresco](docs/develop/issueCertificate.md)
+- [DONE] [merge code for dictionary API from karolbe fork](https://github.com/karolbe/alfresco-client-sdk)
+- [DONE] [merge code for Activiti API from jmpascal branch DBP](https://github.com/Alfresco/alfresco-client-sdk/tree/DBP)
+- [DONE] [merge code from uw-it-edm branch master (Allow to use the label field for facetFields)](https://github.com/uw-it-edm/alfresco-client-sdk)
+
+- [DONE] CleanUp the code
+	- (com.alfresco.client) for community edition (my main focus)
+	- (org.alfresco.client) for enterprise edition
+	
+- [DONE] [Integration with the new open api alfresco explorer with the swagger codegen](docs/develop/apiSwagger_general.md),
+  	- [DONE] Integration Swagger Search API , here some preview of the [example](docs/develop/apiSwagger_search_1.md) .
+  	- [DONE] Integration Swagger Core API 
+  		- [DONE] Activities API, here some preview of the [example](docs/develop/apiSwagger_activities_1.md) 
+  		- [PROGRESS] MAKE EXAMPLE CODE OF OTHER API ......
+  	- [DONE] Integration Swagger Authentication API 
+  	- [DONE] Integration Swagger Discovery API 
+  	- [DONE] Integration Swagger Workflow API 
+- [DONE] Integration with sdk Alfresco 3.0
+- [DONE] [Integration with apache felix plugin maven for osgi service (tested with Apache ServiceMix 6)](docs/develop/alfresco_client_osgi_integration.md)
+- [DONE] Integration REST service on osgi bundle for bridge between alfresco and other service
+- [DONE] Integration HTTPS for osgi bundle
+- [PROGRESS] MAKE EXAMPLE CODE OF OTHER API ......
 
 # Alfresco Java Client (Early Access)
 
