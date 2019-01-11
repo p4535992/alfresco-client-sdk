@@ -1,5 +1,6 @@
 package com.alfresco.client.utils;
 
+import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -9,7 +10,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
 import javax.ws.rs.WebApplicationException;
+
+import org.apache.commons.lang.StringUtils;
+
+import com.alfresco.client.AlfrescoClientSwagger;
 import com.alfresco.client.constant.ContentModel;
+import com.alfresco.swagger.api.client.CollectionFormats.CSVParams;
+import com.alfresco.swagger.api.model.NodeEntry;
+import com.alfresco.swagger.api.model.PathElement;
+import com.alfresco.swagger.api.model.PathInfo;
+
+
 
 /**
  * Alfresco has ability to contain information, documents and their metadata – we can say that holding data in structured and organized way is important but here is one thing that we can not live without and that is retrieving the information.<br>
@@ -122,17 +133,137 @@ public class LuceneUtils {
 		map.put(ContentModel.TYPE_CONTENT, "content");
 		
 		//+PATH:"/app:company_home/cm:ASL1/cm:Archivio/cm:Spazio_x0020_Corrente//*" AND +@asl1cc\:codice_ospedale:"26" AND TYPE:"cm:folder"
-		String luceneQueryFull = buildLuceneQuery(map,"165e7340-9f53-422c-b619-e66f238d2dd6",TypeSearch.FULL);		
+		String luceneQueryFull = buildLuceneQuery(map,"165e7340-9f53-422c-b619-e66f238d2dd6",TypeSearch.FULL,false,null,null);		
 		System.out.println(luceneQueryFull);
 		System.out.println();
 		
-		String luceneQueryAny = buildLuceneQuery(map,"165e7340-9f53-422c-b619-e66f238d2dd6",TypeSearch.ANY);		
+		String luceneQueryAny = buildLuceneQuery(map,"165e7340-9f53-422c-b619-e66f238d2dd6",TypeSearch.ANY,false,null,null);		
 		System.out.println(luceneQueryAny);
 		System.out.println();
 		
-		String luceneQueryExact = buildLuceneQuery(map,"165e7340-9f53-422c-b619-e66f238d2dd6",TypeSearch.EXACT);		
+		String luceneQueryExact = buildLuceneQuery(map,"165e7340-9f53-422c-b619-e66f238d2dd6",TypeSearch.EXACT,false,null,null);		
 		System.out.println(luceneQueryExact);
 		System.out.println();
+	}
+	
+	private static String getPathFromNodeRef(AlfrescoClientSwagger alfrescoClientSwagger,String nodeRefnodeID) throws WebApplicationException{
+		try{
+			
+			String nodeID = "";
+			if(nodeRefnodeID.startsWith("workspace://SpacesStore/")){
+				nodeID = nodeRefnodeID.replace("workspace://SpacesStore/", "");
+			}else{
+				nodeID = nodeRefnodeID;
+			}
+			
+			CSVParams includes = new CSVParams();
+			includes.setParams(Arrays.asList("allowableOperations", "association","isLink", "isLocked","path", "permissions","properties","aspectNames"));
+
+			retrofit2.Response<NodeEntry> resp = alfrescoClientSwagger.getNodesAPI().getNode(
+					nodeID, 
+					includes, 
+					null, 
+					null).execute();
+			
+			if(!resp.isSuccessful()){
+				logger.error(resp.errorBody().source().readUtf8());				
+				throw new WebApplicationException(resp.errorBody().source().readUtf8(),500);
+			}				
+			NodeEntry nodeEntry = resp.body();
+
+			Map<String, Object> props = (Map<String, Object>) nodeEntry.getEntry().getProperties();
+			String path = nodeEntry.getEntry().getPath().getName();
+			
+			return getRelativePathFromNodeEntry(nodeEntry.getEntry().getPath(),true,false);
+			
+		}catch(Throwable ex){
+			throw (WebApplicationException)ex;
+		}
+	}
+	
+//	/**
+//	 * Method to convert a noderef to a relative path for use in lucene query
+//	 * @param nodeEntry
+//	 * @param encoded
+//	 * @return
+//	 */
+//	private static String getRelativePathFromNodeEntry(NodeEntry nodeEntry,boolean encoded){
+//		return getRelativePathFromNodeEntry(nodeEntry.getEntry().getPath(), encoded);
+//	}
+//	
+	/**
+	 * Method to convert a noderef to a relative path for use in lucene query
+	 * @param pathInfo
+	 * @param encoded
+	 * @return
+	 */
+	public static String getRelativePathFromNodeEntry(PathInfo pathInfo,boolean encoded,boolean includedName){
+		StringBuilder relativePath = new StringBuilder();
+		if(pathInfo!=null){
+			relativePath.append(File.separator);
+			//TODO verify a better way to do this
+			
+			boolean flagCompanyHome = true;
+			boolean flagUserHome = true;
+			boolean flagDictionary = true;
+			boolean flagGuestHome = true;
+			boolean flagSites = true;
+			boolean flagShared = true;
+			
+			for(PathElement elem : pathInfo.getElements()){
+				if(flagCompanyHome && elem.getName().equalsIgnoreCase("Company Home")){
+					relativePath.append("app:company_home"+File.separator);
+					flagCompanyHome = false;
+				}else if(flagUserHome && elem.getName().equalsIgnoreCase("User Homes")){
+					relativePath.append("app:user_homes"+File.separator);
+					flagUserHome = false;
+				}else if(flagDictionary && elem.getName().equalsIgnoreCase("Data Dictionary")){
+					relativePath.append("app:dictionary"+File.separator);
+					flagDictionary = false;
+				}else if(flagGuestHome && elem.getName().equalsIgnoreCase("Guest Home")){
+					relativePath.append("app:guest_home"+File.separator);
+					flagGuestHome = false;
+				}else if(flagSites && elem.getName().equalsIgnoreCase("Sites")){
+					relativePath.append("st:sites"+File.separator);
+					flagSites = false;
+				}else if(flagShared && (elem.getName().equalsIgnoreCase("Condiviso") || elem.getName().equalsIgnoreCase("Shared"))){
+					relativePath.append("app:shared"+File.separator);
+					flagShared = false;
+				}
+				else{
+					if(encoded){
+						relativePath.append("cm:"+ISO9075Utils.encode(elem.getName())+File.separator);
+					}else{
+						relativePath.append("cm:"+elem.getName()+File.separator);
+					}
+				}
+			}				
+		}
+		
+		if(includedName){
+			if(encoded){
+				relativePath.append("cm:"+ISO9075Utils.encode(pathInfo.getName())+File.separator);
+			}else{
+				relativePath.append("cm:"+pathInfo.getName()+File.separator);
+			}
+		}
+		
+		String s = relativePath.toString();
+		if(s.endsWith(File.separator)){
+			s = s.substring(0, s.length()-File.separator.length());
+		}
+		return s;
+	}
+	
+	/**
+	 * NOTA: questa ricerca sara' sempre non ricorsiva, ma limitaita ai filgi della cartella specificata
+	 * @param paramsToSearch
+	 * @param nodeRefolderID
+	 * @param typeSearch
+	 * @return
+	 */
+	public static String buildLuceneQuery(Map<String,String> paramsToSearch, String nodeRefolderID,TypeSearch typeSearch){
+		return buildLuceneQuery(paramsToSearch, nodeRefolderID, typeSearch,false,null,null);
 	}
 	
 	/**
@@ -142,8 +273,36 @@ public class LuceneUtils {
 	 * @param typeSearch
 	 * @return
 	 */
-	public static String buildLuceneQuery(Map<String,String> paramsToSearch, String folderID,TypeSearch typeSearch){
+	public static String buildLuceneQuery(Map<String,String> paramsToSearch, String nodeRefolderID,TypeSearch typeSearch,boolean recursively,AlfrescoClientSwagger alfrescoClientSwagger){
+		return  buildLuceneQuery(paramsToSearch, nodeRefolderID, typeSearch,false,null,alfrescoClientSwagger);
+	}
+	
+	/**
+	 * @href http://alfrescoblog.com/2014/07/09/alfresco-lucene-tutorial/
+	 * @param paramsToSearch
+	 * @param folderID
+	 * @param typeSearch
+	 * @return
+	 */
+	public static String buildLuceneQuery(Map<String,String> paramsToSearch, String nodeRefolderID,TypeSearch typeSearch,boolean recursively,String folderPath){
+		return  buildLuceneQuery(paramsToSearch, nodeRefolderID, typeSearch,false,folderPath,null);
+	}
+	
+	/**
+	 * @href http://alfrescoblog.com/2014/07/09/alfresco-lucene-tutorial/
+	 * @param paramsToSearch
+	 * @param folderID
+	 * @param typeSearch
+	 * @return
+	 */
+	public static String buildLuceneQuery(Map<String,String> paramsToSearch, String nodeRefolderID,TypeSearch typeSearch,boolean recursively,String folderPath, AlfrescoClientSwagger alfrescoClientSwagger){
 			Map<String,String> params = new HashMap<>(paramsToSearch);
+			String folderID = "";
+			if(nodeRefolderID.startsWith("workspace://SpacesStore/")){
+				folderID = nodeRefolderID.replace("workspace://SpacesStore/", "");
+			}else{
+				folderID = nodeRefolderID;
+			}
 		
 			StringBuilder luceneQuery = new StringBuilder();	        
 		    String condition = " AND ";
@@ -155,7 +314,7 @@ public class LuceneUtils {
  		    }else if(typeSearch.equals(TypeSearch.EXACT)){
  		    	condition = " OR ";
  		    }else{
- 		    	throw new WebApplicationException("Il tipo di ricerca <"+typeSearch+"> non e' supportato");
+ 		    	throw new WebApplicationException("The type search <"+typeSearch+"> is not supported");
  		    }
 	    
 		    //FILTER TYPE	
@@ -167,9 +326,50 @@ public class LuceneUtils {
 		    	params.remove(ContentModel.TYPE_FOLDER);
 		    }
 		    
+		    //Indeed, PARENT is not searching recursively. This what PATH is intended for: to search recursively.
+		    //And this is also why PATH is slower than PARENT: it is slower because it searches recursively.
+	    
 		    //FILTER PARENT
-		    //PARENT:\"" + STORE.getScheme() + "://" + STORE.getAddress() + "/" + "eec7d9d6-8470-11db-85c2-01d4040f47aa" + "\"";	    
-		    luceneQuery.append("+PARENT:\"").append("workspace").append("://").append("SpacesStore").append("/").append(folderID).append("\" ");  
+		    //PARENT:\"" + STORE.getScheme() + "://" + STORE.getAddress() + "/" + "eec7d9d6-8470-11db-85c2-01d4040f47aa" + "\"";	 
+		    
+		    String path = "";
+		    if(folderPath!=null && !folderPath.isEmpty()){
+		    	path = folderPath;
+		    }else{
+		    	if(alfrescoClientSwagger==null){
+		    		throw new WebApplicationException("The alfrescoClientSwagger is NULL for the node ID : <"+folderID+"> ");
+		    	}else{
+				    try{		    	
+				    	path = getPathFromNodeRef(alfrescoClientSwagger,folderID);
+				    }catch(Throwable ex){
+				    	throw new WebApplicationException("The alfresco is not reachable OR the node ID : <"+folderID+"> do not exists OR you don't have permissions" ,ex);
+				    }
+		    	}
+		    }
+		    
+		    if(recursively){	
+		    	if(path!=null && !path.isEmpty()){
+			    	luceneQuery.append("+PATH:\"").append(path);
+			    	
+				    //if(params.containsKey(ContentModel.TYPE_CONTENT)){
+				    //	luceneQuery.append("//*"); //All nodes below folder test on any depth
+				    //}else if(params.containsKey(ContentModel.TYPE_FOLDER)){
+				    //	luceneQuery.append("//."); //All nodes below folder test on any depth and include folder text
+				    //}
+				    luceneQuery.append("//."); 
+				    
+			    	luceneQuery.append("\" ");  
+		    	}else{
+		    		throw new WebApplicationException("The path is NULL for the node ID : <"+folderID+"> ");
+		    	}
+		    }else{
+		    	if(path!=null && !path.isEmpty()){
+		    		luceneQuery.append("+PATH:\"").append(path).append("/*").append("\" ");
+		    	}else{
+		    		luceneQuery.append("+PARENT:\"").append("workspace").append("://").append("SpacesStore").append("/").append(folderID).append("\" ");  
+		    	}
+		    }
+		    	
 		    //FILTER path
 		    
 		    //"PATH:\"/company_home.//*\"" + "@cm\abstract:mimetype:" + "application/pdf");

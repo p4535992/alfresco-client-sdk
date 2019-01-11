@@ -29,8 +29,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import com.alfresco.client.endpoint.Service;
-import com.alfresco.client.utils.TempFileProvider;
 
+import com.alfresco.client.utils.TempFileProvider;
 import okhttp3.OkHttpClient;
 import okhttp3.ResponseBody;
 import okio.BufferedSink;
